@@ -1,0 +1,248 @@
+---
+title: "Análise dos Preços do Cobre (Cash Seller) — LME"
+subtitle: "Respostas ao Case | Janeiro 2020 – Dezembro 2025"
+date: "`r format(Sys.Date(), '%d/%m/%Y')`"
+output:
+  word_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
+                      fig.width = 10, fig.height = 6, dpi = 300)
+
+library(readxl); library(dplyr); library(lubridate)
+library(ggplot2); library(scales); library(purrr); library(knitr)
+
+theme_set(theme_minimal(base_size = 13) +
+            theme(plot.title       = element_text(face = "bold", size = 15),
+                  plot.subtitle    = element_text(color = "grey40"),
+                  panel.grid.minor = element_blank()))
+```
+
+```{r consolidacao, include=FALSE}
+caminho_dados <- file.path(
+  "C:/Users/karin/OneDrive/Área de Trabalho/TESTE4i",
+  "Dados/lme_prices (1)/prices"
+)
+arquivos <- list.files(caminho_dados, pattern = "\\.xlsx$", full.names = TRUE)
+
+ler_planilha <- function(caminho) {
+  raw <- read_excel(caminho, sheet = "Copper", col_names = FALSE, col_types = "text")
+  raw |>
+    slice(7:n()) |>
+    select(data_serial = 1, cash_seller = 3) |>
+    mutate(data_serial = as.numeric(data_serial),
+           cash_seller = as.numeric(cash_seller)) |>
+    filter(!is.na(data_serial)) |>
+    mutate(data = as.Date(data_serial, origin = "1899-12-30")) |>
+    select(data, cash_seller)
+}
+
+cobre <- map_dfr(arquivos, ler_planilha) |>
+  distinct(data, .keep_all = TRUE) |>
+  arrange(data) |>
+  rename(preco = cash_seller)
+```
+
+# Introdução
+
+Este documento apresenta as respostas ao case de análise dos preços à vista
+(*Cash Seller*) do cobre na London Metal Exchange (LME), com dados diários de
+02/01/2020 a 31/12/2025. A consolidação e as análises foram realizadas em R.
+A série consolidada contém **`r nrow(cobre)` observações** (dias úteis).
+
+# 1. Menor cotação do período
+
+```{r}
+minimo <- cobre |> slice_min(preco, n = 1)
+```
+
+O cobre atingiu sua menor cotação em **`r format(minimo$data, "%d/%m/%Y")`**,
+ao preço de **USD `r format(minimo$preco, big.mark = ".", decimal.mark = ",")`/t**.
+
+# 2. Maior cotação do período
+
+```{r}
+maximo <- cobre |> slice_max(preco, n = 1)
+```
+
+A maior cotação foi registrada em **`r format(maximo$data, "%d/%m/%Y")`**,
+quando o metal alcançou **USD `r format(maximo$preco, big.mark = ".", decimal.mark = ",")`/t**.
+
+# 3. Variação média mensal — 2020 e 2024
+
+```{r}
+ultimo_mes <- cobre |>
+  mutate(ano_mes = floor_date(data, "month")) |>
+  group_by(ano_mes) |> slice_max(data, n = 1) |> ungroup() |>
+  arrange(ano_mes) |>
+  mutate(var_mensal_pct = (preco / lag(preco) - 1) * 100,
+         ano = year(ano_mes))
+
+var_2020 <- ultimo_mes |> filter(ano == 2020, !is.na(var_mensal_pct))
+var_2024 <- ultimo_mes |> filter(ano == 2024, !is.na(var_mensal_pct))
+media_2020 <- mean(var_2020$var_mensal_pct)
+media_2024 <- mean(var_2024$var_mensal_pct)
+```
+
+| Ano  | Variação média mensal |
+|------|-----------------------|
+| 2020 | `r format(round(media_2020, 2), decimal.mark = ",")`% |
+| 2024 | `r format(round(media_2024, 2), decimal.mark = ",")`% |
+
+```{r}
+bind_rows(
+  var_2020 |> mutate(periodo = "2020"),
+  var_2024 |> mutate(periodo = "2024")
+) |>
+  select(periodo, ano_mes, preco, var_mensal_pct) |>
+  mutate(ano_mes = format(ano_mes, "%Y-%m"),
+         preco = round(preco, 2),
+         var_mensal_pct = round(var_mensal_pct, 2)) |>
+  kable(col.names = c("Ano", "Mês", "Preço (USD/t)", "Var. mensal (%)"))
+```
+
+# 4. Variação acumulada (02/01/2020 a 31/12/2025)
+
+```{r}
+preco_inicio <- cobre |> filter(data >= as.Date("2020-01-02")) |> slice_min(data, n = 1)
+preco_fim    <- cobre |> filter(data <= as.Date("2025-12-31")) |> slice_max(data, n = 1)
+var_acumulada <- (preco_fim$preco / preco_inicio$preco - 1) * 100
+```
+
+| Referência | Data | Preço (USD/t) |
+|---|---|---|
+| Início | `r format(preco_inicio$data, "%d/%m/%Y")` | `r format(preco_inicio$preco, big.mark = ".", decimal.mark = ",")` |
+| Fim | `r format(preco_fim$data, "%d/%m/%Y")` | `r format(preco_fim$preco, big.mark = ".", decimal.mark = ",")` |
+
+**Variação acumulada: `r format(round(var_acumulada, 2), decimal.mark = ",")`%**
+
+# 5. Média mensal dos preços
+
+```{r}
+media_mensal <- cobre |>
+  mutate(ano_mes = floor_date(data, "month")) |>
+  group_by(ano_mes) |>
+  summarise(preco_medio = mean(preco, na.rm = TRUE), .groups = "drop")
+
+ggplot(media_mensal, aes(x = ano_mes, y = preco_medio)) +
+  geom_line(color = "#B87333", linewidth = 1) +
+  geom_point(color = "#B87333", size = 1.5) +
+  geom_smooth(method = "loess", se = TRUE, alpha = 0.15,
+              color = "steelblue", linewidth = 0.7) +
+  scale_x_date(date_breaks = "6 months", date_labels = "%b\n%Y") +
+  scale_y_continuous(labels = label_comma(big.mark = ".", decimal.mark = ",")) +
+  labs(title = "Preço Médio Mensal do Cobre (Cash Seller)",
+       subtitle = "LME — Janeiro 2020 a Dezembro 2025",
+       x = NULL, y = "USD / Tonelada",
+       caption = "Fonte: London Metal Exchange (LME)") +
+  annotate("rect", xmin = as.Date("2020-03-01"), xmax = as.Date("2020-06-01"),
+           ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "red") +
+  annotate("text", x = as.Date("2020-04-15"),
+           y = max(media_mensal$preco_medio) * 0.95,
+           label = "COVID-19", size = 3, color = "red")
+```
+
+# 6. Cotação trimestral (último dia do trimestre)
+
+```{r}
+trimestral <- cobre |>
+  mutate(trimestre = floor_date(data, "quarter")) |>
+  group_by(trimestre) |> slice_max(data, n = 1) |> ungroup() |>
+  arrange(data) |>
+  mutate(label_trim = paste0(year(data), " T", quarter(data)))
+
+ggplot(trimestral, aes(x = data, y = preco)) +
+  geom_col(fill = "#B87333", alpha = 0.8, width = 60) +
+  geom_text(aes(label = format(round(preco, 0), big.mark = ".")),
+            vjust = -0.5, size = 3) +
+  scale_x_date(breaks = trimestral$data, labels = trimestral$label_trim) +
+  scale_y_continuous(labels = label_comma(big.mark = ".", decimal.mark = ","),
+                     expand = expansion(mult = c(0, 0.12))) +
+  labs(title = "Cotação do Cobre no Último Dia de Cada Trimestre",
+       subtitle = "LME Cash Seller — 2020 a 2025",
+       x = NULL, y = "USD / Tonelada",
+       caption = "Fonte: London Metal Exchange (LME)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 9))
+```
+
+# 7. Variação anual
+
+```{r}
+anual <- cobre |>
+  mutate(ano = year(data)) |>
+  group_by(ano) |>
+  summarise(primeiro = preco[which.min(data)],
+            ultimo   = preco[which.max(data)],
+            data_ult = max(data), .groups = "drop") |>
+  mutate(var_anual_pct = (ultimo / primeiro - 1) * 100)
+
+ggplot(anual, aes(x = factor(ano), y = var_anual_pct,
+                   fill = var_anual_pct > 0)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  geom_text(aes(label = paste0(format(round(var_anual_pct, 1),
+                                       decimal.mark = ","), "%")),
+            vjust = ifelse(anual$var_anual_pct > 0, -0.5, 1.5),
+            size = 4, fontface = "bold") +
+  scale_fill_manual(values = c("TRUE" = "#2E8B57", "FALSE" = "#CD5C5C")) +
+  scale_y_continuous(labels = label_comma(decimal.mark = ",", suffix = "%"),
+                     expand = expansion(mult = c(0.15, 0.15))) +
+  geom_hline(yintercept = 0, linewidth = 0.5) +
+  labs(title = "Variação Anual do Preço do Cobre (Cash Seller)",
+       subtitle = "LME — 2020 a 2025 | Primeiro vs. último dia útil do ano",
+       x = NULL, y = "Variação (%)",
+       caption = "Fonte: London Metal Exchange (LME)")
+```
+
+```{r}
+anual |>
+  mutate(data_ult = format(data_ult, "%d/%m/%Y"),
+         primeiro = round(primeiro, 2), ultimo = round(ultimo, 2),
+         var_anual_pct = paste0(format(round(var_anual_pct, 2),
+                                        decimal.mark = ","), "%")) |>
+  kable(col.names = c("Ano", "Preço inicial", "Preço final",
+                       "Último dia útil", "Var. anual (%)"))
+```
+
+# 8. Determinantes da trajetória observada
+
+**2020 — Choque pandêmico e recuperação em V.** O cobre abriu o ano próximo de
+USD 6.165/t e sofreu queda acentuada entre março e abril com a paralisação
+industrial causada pela COVID-19, atingindo o vale da série. Estímulos fiscais e
+monetários coordenados globalmente, somados à retomada acelerada da China
+(responsável por mais de 50% do consumo mundial de cobre), conduziram uma
+recuperação expressiva no segundo semestre, fechando o ano com alta de ~26%.
+
+**2021 — Rally das commodities.** Gargalos nas cadeias de suprimento, restrições
+de oferta em minas no Chile e Peru e o fortalecimento da narrativa de transição
+energética (veículos elétricos, energia renovável) impulsionaram o cobre a
+máximas históricas no período, com alta de ~25% no ano.
+
+**2022 — Correção sob aperto monetário.** O ciclo de alta de juros liderado pelo
+Federal Reserve, o fortalecimento do dólar e os lockdowns prolongados na China
+("COVID zero") pressionaram os preços para baixo. A crise do setor imobiliário
+chinês (Evergrande) contribuiu para a retração de ~14% no ano.
+
+**2023 — Estabilização.** O mercado acomodou-se em faixa intermediária, digerindo
+a perspectiva de fim do aperto monetário. A reabertura chinesa ficou aquém das
+expectativas, mas restrições de oferta (queda na produção do Panamá, problemas
+operacionais no Peru) sustentaram um piso para os preços, com variação próxima
+de zero no ano.
+
+**2024 — Retomada gradual.** A expectativa de cortes de juros pelo Fed e a
+aceleração de investimentos em eletrificação (EVs, redes elétricas, data centers
+para IA) reacenderam o interesse pelo metal. Fundos especulativos ampliaram
+posições compradas, refletindo a tese do "superciclo" do cobre.
+
+**2025 — Máximas históricas.** A demanda ligada à transição energética e à
+expansão de infraestrutura de IA elevou o cobre a patamares recordes, com alta
+acumulada de ~44% no ano. Tensões comerciais (tarifas EUA–China) e restrições
+de oferta minerária mantiveram os preços elevados com volatilidade pontual.
+
+**Síntese.** A trajetória do cobre entre 2020 e 2025 reflete sua transição de
+commodity cíclica para ativo estratégico. O descompasso estrutural entre demanda
+crescente (eletrificação, data centers, EVs) e oferta limitada (escassez de novos
+projetos minerários, grades decrescentes) sustenta a tendência de longo prazo,
+moderada por ciclos de política monetária e pela dinâmica da economia chinesa.

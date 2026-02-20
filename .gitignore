@@ -1,0 +1,10 @@
+# Outputs gerados (reproduzíveis via código)
+output/*.html
+output/*.docx
+graficos/*.png
+
+# Arquivos temporários do R
+.Rhistory
+.RData
+.Rproj.user/
+*.knit.md

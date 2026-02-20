@@ -1,6 +1,8 @@
-# Pastas locais (gerados via código)
+# Outputs locais (reproduzíveis via código)
 output/
-graficos/
+graficos/q5_*
+graficos/q6_*
+graficos/q7_*
 
 # Arquivos temporários do R
 .Rhistory

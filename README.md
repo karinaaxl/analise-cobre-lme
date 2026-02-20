@@ -57,8 +57,6 @@ A média elevada de 2020 reflete a recuperação acelerada pós-choque pandêmic
 - **2024** — Retomada com expectativa de corte de juros e eletrificação
 - **2025** — Máximas históricas impulsionadas por demanda de EVs, data centers e infraestrutura de IA (~44%)
 
-A trajetória reflete a transição do cobre de commodity cíclica para ativo estratégico, com descompasso crescente entre demanda e oferta minerária.
-
 ---
 
 ## Como replicar

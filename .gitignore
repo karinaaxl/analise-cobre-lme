@@ -1,14 +1,14 @@
-# Outputs gerados localmente (reproduzíveis via código)
-output/*.html
-output/*.docx
-
-# PNGs intermediários do knitr (duplicados dos ggsave)
-graficos/q5_*
-graficos/q6_*
-graficos/q7_*
+# Pastas locais (gerados via código)
+output/
+graficos/
 
 # Arquivos temporários do R
 .Rhistory
 .RData
 .Rproj.user/
 *.knit.md
+
+# Auxiliares locais
+renderizar.R
+email_resposta.txt
+RELATORIO.md

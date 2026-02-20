@@ -1,7 +1,11 @@
-# Outputs gerados (reproduzíveis via código)
+# Outputs gerados localmente (reproduzíveis via código)
 output/*.html
 output/*.docx
-graficos/*.png
+
+# PNGs intermediários do knitr (duplicados dos ggsave)
+graficos/q5_*
+graficos/q6_*
+graficos/q7_*
 
 # Arquivos temporários do R
 .Rhistory

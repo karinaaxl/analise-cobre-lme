@@ -10,7 +10,7 @@ Consolidação e análise das cotações à vista (*Cash Seller*) do cobre na Lo
 |---|---------|-----------|
 | 1 | `serie_cobre_2020_2025.csv` | Série temporal consolidada — 1.516 dias úteis (data + preço em USD/t) |
 | 2 | `analise_cobre_lme.Rmd` | Código completo em RMarkdown — consolidação, validação, gráficos e análise |
-| 3 | `respostas_cobre.Rmd` | Respostas às 8 perguntas do case (gera documento Word) |
+| 3 | `respostas_cobre.Rmd` | Respostas às 8 perguntas do case |
 | 4 | `verificacao_cobre.xlsx` | Planilha com série histórica + fórmulas de verificação (MIN, MAX, AVERAGE) |
 
 ---
